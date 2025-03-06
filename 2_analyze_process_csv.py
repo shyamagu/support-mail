@@ -196,26 +196,22 @@ def process_csv(input_file):
         print(f"ファイル書き込み中にエラーが発生しました: {e}")
 
 if __name__ == "__main__":
-    # コマンドライン引数からファイルパスを取得、なければデフォルトを使用
+    # コマンドライン引数からファイルパスを取得
     if len(sys.argv) > 1:
         input_file = sys.argv[1]
-    else:
-        # 絶対パスに修正
-        input_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "cleaned_20250303_SR.CSV")
-        print(f"入力ファイルが指定されていません。デフォルトファイル {input_file} を使用します。")
-    
-    # ファイルが存在するか確認
-    if os.path.exists(input_file):
-        process_csv(input_file)
-    else:
-        print(f"ファイル {input_file} が見つかりません。")
-        print("使い方: python 2_analyze_process_csv.py [CSVファイルのパス]")
-        # ファイルが見つからない場合に詳細情報を表示
-        print(f"現在の作業ディレクトリ: {os.getcwd()}")
-        print(f"スクリプトの場所: {os.path.abspath(__file__)}")
-        data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
-        print(f"推定されるdataディレクトリ: {data_dir}")
-        if os.path.exists(data_dir):
-            print(f"dataディレクトリが存在します。内容: {os.listdir(data_dir)}")
+        
+        # ファイルが存在するか確認
+        if os.path.exists(input_file):
+            process_csv(input_file)
         else:
-            print("dataディレクトリが存在しません。")
+            print(f"\nエラー: ファイル {input_file} が見つかりません。")
+            print("\nファイルパスを指定して再度実行してください:")
+            print("python 2_analyze_process_csv.py [CSVファイルのパス]")
+            print("\n例: python 2_analyze_process_csv.py cleaned_sample.CSV")
+            print("\n注意: このスクリプトは1_clean_process_csv.pyで処理された「cleaned_」から始まるCSVファイルを入力として想定しています。")
+    else:
+        print("\nエラー: 入力ファイルが指定されていません。")
+        print("\nファイルパスを指定して実行してください:")
+        print("python 2_analyze_process_csv.py [CSVファイルのパス]")
+        print("\n例: python 2_analyze_process_csv.py cleaned_sample.CSV")
+        print("\n注意: このスクリプトは1_clean_process_csv.pyで処理された「cleaned_」から始まるCSVファイルを入力として想定しています。")
