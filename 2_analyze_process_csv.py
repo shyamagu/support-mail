@@ -38,6 +38,9 @@ def process_csv(input_file):
         with open(input_file, 'r', encoding='cp932') as f:
             reader = csv.DictReader(f)
             rows = list(reader)
+    except Exception as e:
+        print(f"CSVファイルの読み込み中にエラーが発生しました: {e}")
+        return
             
     if not rows:
         print("CSVファイルにデータがありませんでした。")
@@ -87,7 +90,7 @@ def process_csv(input_file):
     if sr_number_exists:
         output_fieldnames.append(sr_number_key)
     output_fieldnames.append(subject_key)  # 件名
-    output_fieldnames.extend(["closed", "bug", "user_request_category", "support_team_response_category"])
+    output_fieldnames.extend(["closed", "bug", "customer_reporter", "customer_email", "email_exchanges_over_ten", "user_request_category", "support_team_response_category"])
     
     # マトリクス形式のカテゴリ列を追加
     # 問い合わせカテゴリのマトリクス列
@@ -107,6 +110,7 @@ def process_csv(input_file):
     # 各行を処理
     total_rows = len(rows)
     skipped_rows = 0
+    api_error = False
     
     for i, row in enumerate(rows, 1):
         # SR番号の重複チェック
@@ -139,6 +143,9 @@ def process_csv(input_file):
                 # 結果をCSV用に整形
                 new_row["closed"] = getattr(support_category, "closed", "")  # closedフィールドがあれば取得、なければ空文字
                 new_row["bug"] = support_category.bug
+                new_row["customer_reporter"] = support_category.customer_reporter
+                new_row["customer_email"] = support_category.customer_email  # メールアドレスフィールドを追加
+                new_row["email_exchanges_over_ten"] = support_category.email_exchanges_over_ten
                 new_row["user_request_category"] = ", ".join(support_category.user_request_category)
                 new_row["support_team_response_category"] = ", ".join(support_category.support_team_response_category)
                 
@@ -151,33 +158,29 @@ def process_csv(input_file):
                 for category in SUPPORT_RESPONSE_CATEGORIES:
                     new_row[f"css_{category}"] = 1 if category in support_category.support_team_response_category else 0
                 
-                print(f"  解析完了: bug={support_category.bug}, closed={getattr(support_category, 'closed', '')}")
+                print(f"  解析完了: bug={support_category.bug}, closed={getattr(support_category, 'closed', '')}, reporter={support_category.customer_reporter}, email={support_category.customer_email}, exchanges={support_category.email_exchanges_over_ten}")
+            except ValueError as ve:
+                # APIキーが設定されていない場合のエラー処理
+                if "OpenAI APIの設定が不足しています" in str(ve):
+                    print(f"\nエラー: {ve}")
+                    print("環境変数を設定してからスクリプトを再実行してください。")
+                    api_error = True
+                    break
+                else:
+                    print(f"  データ解析中にエラー発生: {str(ve)}")
+                    set_empty_values(new_row)
             except Exception as e:
                 print(f"  エラー発生: {str(e)}")
-                new_row["closed"] = ""
-                new_row["bug"] = ""
-                new_row["user_request_category"] = ""
-                new_row["support_team_response_category"] = ""
-                
-                # エラーの場合は、マトリクス列をすべて0に設定
-                for category in USER_REQUEST_CATEGORIES:
-                    new_row[f"user_{category}"] = 0
-                for category in SUPPORT_RESPONSE_CATEGORIES:
-                    new_row[f"css_{category}"] = 0
+                set_empty_values(new_row)
         else:
             # 本文がない場合は空欄に
-            new_row["closed"] = ""
-            new_row["bug"] = ""
-            new_row["user_request_category"] = ""
-            new_row["support_team_response_category"] = ""
-            
-            # 本文がない場合も、マトリクス列をすべて0に設定
-            for category in USER_REQUEST_CATEGORIES:
-                new_row[f"user_{category}"] = 0
-            for category in SUPPORT_RESPONSE_CATEGORIES:
-                new_row[f"css_{category}"] = 0
+            set_empty_values(new_row)
         
         analyzed_rows.append(new_row)
+
+    # APIエラーが発生した場合は中止
+    if api_error:
+        return
 
     # フィルタリング結果のログ出力
     print(f"\n全行数: {total_rows}")
@@ -194,6 +197,22 @@ def process_csv(input_file):
         print(f"\n解析が完了しました。結果は {output_filepath} に保存されました。")
     except Exception as e:
         print(f"ファイル書き込み中にエラーが発生しました: {e}")
+
+def set_empty_values(row):
+    """エラー発生時などに行データに空の値をセットする"""
+    row["closed"] = ""
+    row["bug"] = ""
+    row["customer_reporter"] = ""
+    row["customer_email"] = ""  # メールアドレスフィールドを追加
+    row["email_exchanges_over_ten"] = ""
+    row["user_request_category"] = ""
+    row["support_team_response_category"] = ""
+    
+    # マトリクス列をすべて0に設定
+    for category in USER_REQUEST_CATEGORIES:
+        row[f"user_{category}"] = 0
+    for category in SUPPORT_RESPONSE_CATEGORIES:
+        row[f"css_{category}"] = 0
 
 if __name__ == "__main__":
     # コマンドライン引数からファイルパスを取得

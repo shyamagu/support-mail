@@ -2,30 +2,60 @@ from pydantic import BaseModel
 from openai import AzureOpenAI
 from dotenv import load_dotenv
 import os
+import sys
 
+# .envファイルから環境変数を読み込む
 load_dotenv()
 
-azure_openai_client = AzureOpenAI(
-    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-    api_version="2024-12-01-preview"
-)
+# 必要な環境変数の存在を確認
+required_env_vars = ["AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_API_KEY", "MODEL_DEPLOYMENT_NAME"]
+missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 
-model_deployment_name = os.getenv("MODEL_DEPLOYMENT_NAME")
+if missing_vars:
+    print(f"エラー: 以下の環境変数が設定されていません: {', '.join(missing_vars)}")
+    print("環境変数を.envファイルまたはシステム環境変数に設定してください。")
+    print("例:\nAZURE_OPENAI_ENDPOINT=your_azure_openai_endpoint")
+    print("AZURE_OPENAI_API_KEY=your_azure_openai_api_key")
+    print("MODEL_DEPLOYMENT_NAME=your_model_deployment_name")
+    # GitHub公開用のコードでは、環境変数がない場合でもエラーで終了せず
+    # クライアントをNoneに設定して、実行時に適切なエラーが出るようにする
+    azure_openai_client = None
+    model_deployment_name = None
+else:
+    # 環境変数が存在する場合は通常通りクライアントを初期化
+    azure_openai_client = AzureOpenAI(
+        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+        api_version="2024-12-01-preview"
+    )
+    model_deployment_name = os.getenv("MODEL_DEPLOYMENT_NAME")
 
 class SupportCategory(BaseModel):  
     closed: int
     bug: int  # billableからbugに変更
+    customer_reporter: str  # 顧客の記票者を追加
+    customer_email: str     # 顧客の記票者のメールアドレスを追加
+    email_exchanges_over_ten: int  # メールのやりとりが10回以上あるかどうか(10回以上:1, 10回未満:0)
     user_request_category: list[str]
     support_team_response_category: list[str] 
 
 def call_openai_completion(body: str, response_format: BaseModel):
+    # API設定が不足している場合はエラーメッセージを表示
+    if azure_openai_client is None or model_deployment_name is None:
+        raise ValueError(
+            "OpenAI APIの設定が不足しています。.envファイルに必要な環境変数を設定してください。\n"
+            "必要な環境変数: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, MODEL_DEPLOYMENT_NAME"
+        )
+
     system_prompt = """\
 入力されたマイクロソフトサポートチームと顧客とのメールスレッドを確認し、以下の項目を抽出してください。
 
 # 抽出項目
 - closed: 問い合わせがクローズされているかどうか(クローズ:1, 未クローズ:0)
 - bug: 最終的にAzureやM365などマイクロソフト製品の不具合に起因する障害だったかどうか(MSの不具合:1, そうでない場合:0)
+- customer_reporter: 顧客側で問い合わせを記票した人物の名前を抽出してください。特定できない場合は「不明」と記入
+- customer_email: 顧客側で問い合わせを記票した人物のメールアドレスを抽出してください。特定できない場合は「不明」と記入
+- email_exchanges_over_ten: メールのやりとりが10回以上継続しているかどうか(10回以上:1, 10回未満:0)
 
 - user_request_category: 問い合わせのカテゴリ(※以下から選択、複数可。可能な限り１つ)
  - specConfirmation: マイクロソフト製品の仕様確認、設定方法の問い合わせ
@@ -68,6 +98,12 @@ def get_parsed_completion(messages: list[dict], response_format: BaseModel):
     Returns:
         tuple: Parsed event, input token count, output token count.
     """
+    if azure_openai_client is None or model_deployment_name is None:
+        raise ValueError(
+            "OpenAI APIの設定が不足しています。.envファイルに必要な環境変数を設定してください。\n"
+            "必要な環境変数: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, MODEL_DEPLOYMENT_NAME"
+        )
+        
     completion = azure_openai_client.beta.chat.completions.parse(
         model=model_deployment_name,
         messages=messages,

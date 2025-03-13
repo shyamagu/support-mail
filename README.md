@@ -6,6 +6,8 @@
 1. CSVデータのクリーニングと重複除去（`1_clean_process_csv.py`）
 2. OpenAI APIを使用したデータ分析（`2_analyze_process_csv.py`）
 
+※本ツールやこのREADMEはGitHub Copilotによってほぼ作成されています。
+
 ## 必要条件
 - Python 3.9以上
 - 以下のPythonパッケージ：
