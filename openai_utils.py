@@ -87,6 +87,37 @@ def call_openai_completion(body: str, response_format: BaseModel):
 
     return event
 
+def call_openai_completion_mock(body: str, response_format: BaseModel):
+    """
+    OpenAI APIの呼び出しのモック実装。
+    APIを実際に呼び出さず、テスト用のダミーデータを返します。
+    """
+    print("INFO: モック実装の call_openai_completion_mock を使用中")
+    
+    # テスト用のダミーレスポンスを作成
+    mock_response = SupportCategory(
+        closed=1,
+        bug=0,
+        customer_reporter="テスト ユーザー",
+        customer_email="test.user@example.com",
+        email_exchanges_over_ten=0,
+        user_request_category=["specConfirmation"],
+        support_team_response_category=["providedPublicDocs"]
+    )
+    
+    # 入力に基づいて一部の値を変更（簡易的なデモンストレーション用）
+    if "バグ" in body or "不具合" in body or "問題" in body:
+        mock_response.bug = 1
+        mock_response.user_request_category = ["productFailure"]
+        mock_response.support_team_response_category = ["reportedProductFailure"]
+    
+    if "見積" in body or "料金" in body or "課金" in body:
+        mock_response.user_request_category = ["billingIssue"]
+        mock_response.support_team_response_category = ["billingIssue"]
+    
+    # 実際のAPIレスポンスの戻り値と同じ形式にする
+    return mock_response
+
 def get_parsed_completion(messages: list[dict], response_format: BaseModel):
     """
     Get parsed completion from Azure OpenAI.

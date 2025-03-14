@@ -19,8 +19,8 @@
 
 ### 1. リポジトリのクローン
 ```bash
-git clone https://github.com/yourusername/CSS_SR.git
-cd CSS_SR
+git clone https://github.com/shyamagu/support-mail.git
+cd support-mail
 ```
 
 ### 2. 仮想環境の作成と有効化（推奨）
@@ -68,12 +68,19 @@ python 1_clean_process_csv.py data/20250303_SR.CSV
 このスクリプトは、ステップ1でクリーニングされたCSVファイルを読み込み、OpenAI APIを使用して各サポートケースを分析します。
 
 ```bash
-python 2_analyze_process_csv.py [クリーニング済みCSVファイルのパス]
+python 2_analyze_process_csv.py [クリーニング済みCSVファイルのパス] [オプション]
 ```
+
+#### オプション
+- `-m`, `--mock`: OpenAI APIの代わりにモック関数を使用します（APIキーなしでテスト実行する場合に便利）
 
 例：
 ```bash
+# APIを使用して分析
 python 2_analyze_process_csv.py data/cleaned_20250303_SR.CSV
+
+# モック関数を使用して分析
+python 2_analyze_process_csv.py data/cleaned_20250303_SR.CSV --mock
 ```
 
 分析結果は入力ファイルと同じディレクトリに `analyzed_[元のファイル名].CSV` として保存されます。
@@ -96,3 +103,5 @@ CSVファイルは UTF-8 または Shift-JIS (CP932) でエンコードされて
 
 ### API接続の問題
 `.env` ファイルの設定が正しいか確認し、ネットワーク接続に問題がないことを確認してください。
+
+APIキーがない場合や接続をテストしたい場合は、`--mock`オプションを使用してモックモードで実行できます。
