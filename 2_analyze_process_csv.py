@@ -4,6 +4,7 @@ import sys
 import re
 import json
 import argparse
+import time  # timeモジュールを追加
 from openai_utils import SupportCategory, call_openai_completion, call_openai_completion_mock
 
 # カテゴリのリストを定義
@@ -143,7 +144,24 @@ def process_csv(input_file, use_mock=False):
                     support_category = call_openai_completion_mock(body, SupportCategory)
                     print("  モックモードで実行中...")
                 else:
-                    support_category = call_openai_completion(body, SupportCategory)
+                    # リトライロジックを追加
+                    max_retries = 2
+                    retry_count = 0
+                    while True:
+                        try:
+                            support_category = call_openai_completion(body, SupportCategory)
+                            break  # 成功したらループを抜ける
+                        except Exception as api_error:
+                            error_str = str(api_error)
+                            # 429エラー（レート制限）の場合
+                            if "429" in error_str and retry_count < max_retries:
+                                retry_count += 1
+                                wait_time = 60  # 60秒待機
+                                print(f"  レート制限エラー(429)が発生しました。{wait_time}秒待機して再試行します... ({retry_count}/{max_retries})")
+                                time.sleep(wait_time)
+                            else:
+                                # その他のエラーまたは最大リトライ回数を超えた場合は例外を再度発生させる
+                                raise
                 
                 # 結果をCSV用に整形
                 new_row["closed"] = getattr(support_category, "closed", "")  # closedフィールドがあれば取得、なければ空文字
