@@ -156,7 +156,7 @@ def process_csv(input_file, use_mock=False):
                             # 429エラー（レート制限）の場合
                             if "429" in error_str and retry_count < max_retries:
                                 retry_count += 1
-                                wait_time = 60  # 60秒待機
+                                wait_time = 90  # 90秒待機
                                 print(f"  レート制限エラー(429)が発生しました。{wait_time}秒待機して再試行します... ({retry_count}/{max_retries})")
                                 time.sleep(wait_time)
                             else:
