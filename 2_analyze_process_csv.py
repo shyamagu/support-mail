@@ -5,7 +5,7 @@ import re
 import json
 import argparse
 import time  # timeモジュールを追加
-from openai_utils import SupportCategory, call_openai_completion, call_openai_completion_mock
+from openai_utils import SupportCategory, call_openai_completion, call_openai_completion_mock, reinitialize_openai_client
 
 # カテゴリのリストを定義
 USER_REQUEST_CATEGORIES = [
@@ -158,6 +158,15 @@ def process_csv(input_file, use_mock=False):
                                 retry_count += 1
                                 wait_time = 90  # 90秒待機
                                 print(f"  レート制限エラー(429)が発生しました。{wait_time}秒待機して再試行します... ({retry_count}/{max_retries})")
+                                
+                                # クライアントを再初期化する
+                                print(f"  OpenAIクライアントを再初期化しています...")
+                                success = reinitialize_openai_client()
+                                if success:
+                                    print(f"  クライアント再初期化に成功しました")
+                                else:
+                                    print(f"  警告: クライアント再初期化に失敗しました。既存のクライアントで再試行します")
+                                
                                 time.sleep(wait_time)
                             else:
                                 # その他のエラーまたは最大リトライ回数を超えた場合は例外を再度発生させる
