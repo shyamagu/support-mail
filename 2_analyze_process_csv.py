@@ -3,9 +3,7 @@ import os
 import sys
 import re
 import json
-import argparse
-import time  # timeモジュールを追加
-from openai_utils import SupportCategory, call_openai_completion, call_openai_completion_mock, reinitialize_openai_client
+from openai_utils import SupportCategory, call_openai_completion
 
 # カテゴリのリストを定義
 USER_REQUEST_CATEGORIES = [
@@ -29,7 +27,7 @@ SUPPORT_RESPONSE_CATEGORIES = [
     "other"
 ]
 
-def process_csv(input_file, use_mock=False):
+def process_csv(input_file):
     # CSVファイルを読み込む
     try:
         with open(input_file, 'r', encoding='utf-8-sig') as f:
@@ -49,7 +47,7 @@ def process_csv(input_file, use_mock=False):
         return
         
     # 件名と本文カラムの存在チェック
-    # print(f"最初の行のデータ: {rows[0]}")
+    print(f"最初の行のデータ: {rows[0]}")
     
     # キーに「件名」と「本文」を含むものを探す
     subject_key = None
@@ -139,38 +137,8 @@ def process_csv(input_file, use_mock=False):
         if body_key and row[body_key]:
             body = row[body_key]
             try:
-                # OpenAI APIを呼び出して解析（引数に基づいて実行/モックを切り替え）
-                if use_mock:
-                    support_category = call_openai_completion_mock(body, SupportCategory)
-                    print("  モックモードで実行中...")
-                else:
-                    # リトライロジックを追加
-                    max_retries = 2
-                    retry_count = 0
-                    while True:
-                        try:
-                            support_category = call_openai_completion(body, SupportCategory)
-                            break  # 成功したらループを抜ける
-                        except Exception as api_error:
-                            error_str = str(api_error)
-                            # 429エラー（レート制限）の場合
-                            if "429" in error_str and retry_count < max_retries:
-                                retry_count += 1
-                                wait_time = 90  # 90秒待機
-                                print(f"  レート制限エラー(429)が発生しました。{wait_time}秒待機して再試行します... ({retry_count}/{max_retries})")
-                                
-                                # クライアントを再初期化する
-                                print(f"  OpenAIクライアントを再初期化しています...")
-                                success = reinitialize_openai_client()
-                                if success:
-                                    print(f"  クライアント再初期化に成功しました")
-                                else:
-                                    print(f"  警告: クライアント再初期化に失敗しました。既存のクライアントで再試行します")
-                                
-                                time.sleep(wait_time)
-                            else:
-                                # その他のエラーまたは最大リトライ回数を超えた場合は例外を再度発生させる
-                                raise
+                # OpenAI APIを呼び出して解析
+                support_category = call_openai_completion(body, SupportCategory)
                 
                 # 結果をCSV用に整形
                 new_row["closed"] = getattr(support_category, "closed", "")  # closedフィールドがあれば取得、なければ空文字
@@ -247,30 +215,22 @@ def set_empty_values(row):
         row[f"css_{category}"] = 0
 
 if __name__ == "__main__":
-    # コマンドライン引数の解析を設定
-    parser = argparse.ArgumentParser(description='CSVファイルを処理してOpenAI APIで分析します')
-    parser.add_argument('file', help='処理するCSVファイルのパス')
-    parser.add_argument('-m', '--mock', action='store_true', help='APIの代わりにモック関数を使用する')
-    
-    # コマンドライン引数がなければヘルプを表示
-    if len(sys.argv) == 1:
-        parser.print_help()
-        print("\n注意: このスクリプトは1_clean_process_csv.pyで処理された「cleaned_」から始まるCSVファイルを入力として想定しています。")
-        sys.exit(1)
-    
-    args = parser.parse_args()
-    input_file = args.file
-    use_mock = args.mock
-    
-    # ファイルが存在するか確認
-    if os.path.exists(input_file):
-        print(f"{'モック' if use_mock else 'API'}モードで実行します")
-        process_csv(input_file, use_mock)
+    # コマンドライン引数からファイルパスを取得
+    if len(sys.argv) > 1:
+        input_file = sys.argv[1]
+        
+        # ファイルが存在するか確認
+        if os.path.exists(input_file):
+            process_csv(input_file)
+        else:
+            print(f"\nエラー: ファイル {input_file} が見つかりません。")
+            print("\nファイルパスを指定して再度実行してください:")
+            print("python 2_analyze_process_csv.py [CSVファイルのパス]")
+            print("\n例: python 2_analyze_process_csv.py cleaned_sample.CSV")
+            print("\n注意: このスクリプトは1_clean_process_csv.pyで処理された「cleaned_」から始まるCSVファイルを入力として想定しています。")
     else:
-        print(f"\nエラー: ファイル {input_file} が見つかりません。")
-        print("\nファイルパスを指定して再度実行してください:")
+        print("\nエラー: 入力ファイルが指定されていません。")
+        print("\nファイルパスを指定して実行してください:")
         print("python 2_analyze_process_csv.py [CSVファイルのパス]")
-        print("オプション: -m または --mock フラグを使用するとモックモードで実行されます")
         print("\n例: python 2_analyze_process_csv.py cleaned_sample.CSV")
-        print("例: python 2_analyze_process_csv.py cleaned_sample.CSV --mock")
         print("\n注意: このスクリプトは1_clean_process_csv.pyで処理された「cleaned_」から始まるCSVファイルを入力として想定しています。")

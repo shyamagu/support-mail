@@ -30,72 +30,6 @@ else:
     )
     model_deployment_name = os.getenv("MODEL_DEPLOYMENT_NAME")
 
-def initialize_openai_client(azure_endpoint: str, api_key: str, model_name: str) -> bool:
-    """
-    外部からAzure OpenAIクライアントを初期化するための関数。
-    環境変数が設定されていない場合や初期化に失敗した場合に使用できます。
-    
-    Args:
-        azure_endpoint (str): Azure OpenAIのエンドポイントURL
-        api_key (str): Azure OpenAIのAPIキー
-        model_name (str): 使用するモデルのデプロイメント名
-        
-    Returns:
-        bool: 初期化に成功した場合はTrue、失敗した場合はFalse
-    """
-    global azure_openai_client, model_deployment_name
-    
-    try:
-        azure_openai_client = AzureOpenAI(
-            azure_endpoint=azure_endpoint,
-            api_key=api_key,
-            api_version="2024-12-01-preview"
-        )
-        model_deployment_name = model_name
-        return True
-    except Exception as e:
-        print(f"クライアント初期化エラー: {str(e)}")
-        return False
-
-def reinitialize_openai_client(azure_endpoint: str = None, api_key: str = None, model_name: str = None) -> bool:
-    """
-    既存の環境変数を使用してAzure OpenAIクライアントを再初期化するための関数。
-    パラメータが指定されない場合は環境変数から値を取得します。
-    
-    Args:
-        azure_endpoint (str, optional): Azure OpenAIのエンドポイントURL。指定しない場合は環境変数から取得。
-        api_key (str, optional): Azure OpenAIのAPIキー。指定しない場合は環境変数から取得。
-        model_name (str, optional): 使用するモデルのデプロイメント名。指定しない場合は環境変数から取得。
-        
-    Returns:
-        bool: 初期化に成功した場合はTrue、失敗した場合はFalse
-    """
-    global azure_openai_client, model_deployment_name
-    
-    # 環境変数から値を取得し、引数で指定された場合はそちらを優先
-    endpoint = azure_endpoint or os.getenv("AZURE_OPENAI_ENDPOINT")
-    key = api_key or os.getenv("AZURE_OPENAI_API_KEY")
-    model = model_name or os.getenv("MODEL_DEPLOYMENT_NAME")
-    
-    # 必要な値がすべて揃っているか確認
-    if not all([endpoint, key, model]):
-        print("エラー: 必要な設定値が不足しています。")
-        print("AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, MODEL_DEPLOYMENT_NAMEの環境変数を設定するか、")
-        print("関数の引数として指定してください。")
-        return False
-    
-    try:
-        azure_openai_client = AzureOpenAI(
-            azure_endpoint=endpoint,
-            api_key=key,
-            api_version="2024-12-01-preview"
-        )
-        model_deployment_name = model
-        return True
-    except Exception as e:
-        print(f"クライアント再初期化エラー: {str(e)}")
-        return False
-
 class SupportCategory(BaseModel):  
     closed: int
     bug: int  # billableからbugに変更
@@ -152,37 +86,6 @@ def call_openai_completion(body: str, response_format: BaseModel):
     event, input_token, output_token=  get_parsed_completion(messages, SupportCategory)
 
     return event
-
-def call_openai_completion_mock(body: str, response_format: BaseModel):
-    """
-    OpenAI APIの呼び出しのモック実装。
-    APIを実際に呼び出さず、テスト用のダミーデータを返します。
-    """
-    print("INFO: モック実装の call_openai_completion_mock を使用中")
-    
-    # テスト用のダミーレスポンスを作成
-    mock_response = SupportCategory(
-        closed=1,
-        bug=0,
-        customer_reporter="テスト ユーザー",
-        customer_email="test.user@example.com",
-        email_exchanges_over_ten=0,
-        user_request_category=["specConfirmation"],
-        support_team_response_category=["providedPublicDocs"]
-    )
-    
-    # 入力に基づいて一部の値を変更（簡易的なデモンストレーション用）
-    if "バグ" in body or "不具合" in body or "問題" in body:
-        mock_response.bug = 1
-        mock_response.user_request_category = ["productFailure"]
-        mock_response.support_team_response_category = ["reportedProductFailure"]
-    
-    if "見積" in body or "料金" in body or "課金" in body:
-        mock_response.user_request_category = ["billingIssue"]
-        mock_response.support_team_response_category = ["billingIssue"]
-    
-    # 実際のAPIレスポンスの戻り値と同じ形式にする
-    return mock_response
 
 def get_parsed_completion(messages: list[dict], response_format: BaseModel):
     """
